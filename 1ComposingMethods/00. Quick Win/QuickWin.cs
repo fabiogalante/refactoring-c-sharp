@@ -5,74 +5,72 @@ using System.Net.Mail;
 
 namespace ComposingMethods.QuickWin
 {
-    public class ModelState
-    {
-        public static void AddModelError(string key, string errorMessage)
-        { }
-    }
-
     public class QuickWin
     {
         private readonly SmtpClient _mailEngine = new SmtpClient();
 
         public ActionResult ImportStudents(string csv)
         {
-            foreach (string[] d in csv.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries)
+            foreach (string[] cwd in csv.Split(new[] { Environment.NewLine }, StringSplitOptions.RemoveEmptyEntries)
                                       .Select(line => line.Split(new[] { '|' })))
             {
-                int id;
-                if (int.TryParse(d[0], out id))
-                {
-                    var existing = StudentRepository.GetById(id);
-                    if (existing == null)
-                    {
-                        var student = new Student
-                        {
-                            Id = id,
-                            FirstName = d[1],
-                            LastName = d[2],
-                            Email = d[3].ToLower(),
-                            ClassId = int.Parse(d[4]),
-                            Telephone = d[5],
-                            StreetName = d[6],
-                            StreetNumber = int.Parse(d[7]),
-                            ZipCode = d[8],
-                            City = d[9],
-                        };
-
-                        string password = PasswordGenerator.CreateRandomPassword();
-                        student.Password = Crypto.HashPassword(password);
-
-                        SendMailWithPassword(student.FirstName, student.LastName, student.Email, password);
-
-                        StudentRepository.Add(student);
-                    }
-                    else
-                    {
-                        ModelState.AddModelError("", $"Student with {id} already exists.");
-                        return View();
-                    }
-                }
-                else
+                if (!int.TryParse(cwd[0], out var id))
                 {
                     ModelState.AddModelError("", $"Student id {id} is not a number.");
                     return View();
                 }
+
+                if (StudentRepository.GetById(id) != null)
+                {
+                    return WorkerAlreadyExistsError(id);
+                }
+
+                Student student = CreateWorker(cwd, id);
+
+                var password = PasswordGenerator.CreateRandomPassword();
+                student.Password = Crypto.HashPassword(password);
+
+                SendMailWithPassword(new Worker(student.FirstName, student.LastName, student.Email, password));
+
+                StudentRepository.Add(student);
             }
 
 
             return View();
         }
 
-        private void SendMailWithPassword(string firstName, string lastName, string email, string password)
+        private static Student CreateWorker(string[] d, int id)
         {
-            var msg = new MailMessage(new MailAddress("admin@university.com", "Admin"), new MailAddress(email, firstName + lastName))
+            return new Student
+            {
+                Id = id,
+                FirstName = d[1],
+                LastName = d[2],
+                Email = d[3].ToLower(),
+                ClassId = int.Parse(d[4]),
+                Telephone = d[5],
+                StreetName = d[6],
+                StreetNumber = int.Parse(d[7]),
+                ZipCode = d[8],
+                City = d[9],
+            };
+        }
+
+        private ActionResult WorkerAlreadyExistsError(int id)
+        {
+            ModelState.AddModelError("", $"Student with {id} already exists.");
+            return View();
+        }
+
+        private void SendMailWithPassword(Worker worker)
+        {
+            var msg = new MailMessage(new MailAddress("admin@university.com", "Admin"), new MailAddress(worker.Email, worker.FirstName + worker.LastName))
             {
                 Body = string.Format("Dear {0},{0}{0}Welcome to the Refactoring University.{0}These are your login data.{0}Username: {3}{0}Password: {2}",
-                                    firstName,
+                                    worker.FirstName,
                                     Environment.NewLine,
-                                    password,
-                                    email),
+                                    worker.Password,
+                                    worker.Email),
                 Subject = "New Student Account",
             };
             _mailEngine.Send(msg);

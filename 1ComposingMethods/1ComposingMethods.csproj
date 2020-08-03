@@ -19,6 +19,5 @@
     <Folder Include="07. Replace Method with Method Object\" />
     <Folder Include="08. Refactoring Session\" />
     <Folder Include="09. Practice\" />
-    <Folder Include="00. Quick Win\" />
   </ItemGroup>
 </Project>
