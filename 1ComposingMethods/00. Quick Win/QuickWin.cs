@@ -1,5 +1,4 @@
 ﻿using System;
-using System.Collections.Generic;
 using System.Linq;
 using System.Net.Mail;
 
@@ -10,6 +9,8 @@ namespace ComposingMethods.QuickWin
         public static void AddModelError(string key, string errorMessage)
         { }
     }
+
+   
 
     public class QuickWin
     {
@@ -23,35 +24,20 @@ namespace ComposingMethods.QuickWin
                 int id;
                 if (int.TryParse(d[0], out id))
                 {
-                    var existing = StudentRepository.GetById(id);
-                    if (existing == null)
+                    if (StudentRepository.GetById(id) != null)
                     {
-                        var student = new Student
-                        {
-                            Id = id,
-                            FirstName = d[1],
-                            LastName = d[2],
-                            Email = d[3].ToLower(),
-                            ClassId = int.Parse(d[4]),
-                            Telephone = d[5],
-                            StreetName = d[6],
-                            StreetNumber = int.Parse(d[7]),
-                            ZipCode = d[8],
-                            City = d[9],
-                        };
-
-                        string password = PasswordGenerator.CreateRandomPassword();
-                        student.Password = Crypto.HashPassword(password);
-
-                        SendMailWithPassword(student.FirstName, student.LastName, student.Email, password);
-
-                        StudentRepository.Add(student);
+                        return StudentAlreadyExistsError(id);
                     }
-                    else
-                    {
-                        ModelState.AddModelError("", $"Student with {id} already exists.");
-                        return View();
-                    }
+
+                    var student = CreateStudent(id, d);
+
+                    string password = PasswordGenerator.CreateRandomPassword();
+                    student.Password = Crypto.HashPassword(password);
+
+                    SendMailWithPassword(student);
+
+
+                    StudentRepository.Add(student);
                 }
                 else
                 {
@@ -64,15 +50,39 @@ namespace ComposingMethods.QuickWin
             return View();
         }
 
-        private void SendMailWithPassword(string firstName, string lastName, string email, string password)
+        private static Student CreateStudent(int id, string[] d)
         {
-            var msg = new MailMessage(new MailAddress("admin@university.com", "Admin"), new MailAddress(email, firstName + lastName))
+            var student = new Student
+            {
+                Id = id,
+                FirstName = d[1],
+                LastName = d[2],
+                Email = d[3].ToLower(),
+                ClassId = int.Parse(d[4]),
+                Telephone = d[5],
+                StreetName = d[6],
+                StreetNumber = int.Parse(d[7]),
+                ZipCode = d[8],
+                City = d[9],
+            };
+            return student;
+        }
+
+        private ActionResult StudentAlreadyExistsError(int id)
+        {
+            ModelState.AddModelError("", $"Student with {id} already exists.");
+            return View();
+        }
+
+        private void SendMailWithPassword(Student student)
+        {
+            var msg = new MailMessage(new MailAddress("admin@university.com", "Admin"), new MailAddress(student.Email, student.FirstName + student.LastName))
             {
                 Body = string.Format("Dear {0},{0}{0}Welcome to the Refactoring University.{0}These are your login data.{0}Username: {3}{0}Password: {2}",
-                                    firstName,
+                                    student.FirstName,
                                     Environment.NewLine,
-                                    password,
-                                    email),
+                                    student.Password,
+                                    student.Email),
                 Subject = "New Student Account",
             };
             _mailEngine.Send(msg);
