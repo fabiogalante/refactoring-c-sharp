@@ -27,35 +27,50 @@ namespace ComposingMethods
 
             foreach (var singleEvent in events)
             {
-                //default to today if no date is specified, or if date is invalid (date comes back as year 1, month 1, etc
-                if (!singleEvent.NewsDate.HasValue || singleEvent.NewsDate.Value.Year == 1)
-                {
-                    singleEvent.NewsDate = DateTime.Now;
-                }
+                SetTheNewsDate(singleEvent);
 
-                string pubYear = singleEvent.NewsDate.Value.Year.ToString();//year in format like "2013"
 
                 if (yearId == 0)
                 {
-                    //No year node, create one
-                    var yearFolder = service.CreateContent(pubYear, singleEvent.NewsDate);
-                    service.SaveAndPublish(yearFolder);
+                    CreateYearNode(service, singleEvent);
 
-                    //Add and sort years
-                    foreach (var yearNode in singleEvent.Cache)
-                    {
-                        if (yearNode.Key == "year")
-                        {
-                            yearDict.Add(yearNode.Key, int.Parse(yearNode.Value));
-                        }
-                    }
-                    var yearList = yearDict.Keys.ToList();
-                    yearList.Sort();
-                    yearList.Reverse();
+                    AddAndSortYears(singleEvent, yearDict);
                 }
             }
             //Create year folders
             service.CreateYearFolders(yearDict);
+        }
+
+        private static void AddAndSortYears(Event singleEvent, Dictionary<string, int> yearDict)
+        {
+            foreach (var yearNode in singleEvent.Cache)
+            {
+                if (yearNode.Key == "year")
+                {
+                    yearDict.Add(yearNode.Key, int.Parse(yearNode.Value));
+                }
+            }
+
+            var yearList = yearDict.Keys.ToList();
+            yearList.Sort();
+            yearList.Reverse();
+        }
+
+        private static void CreateYearNode(IEventService service, Event singleEvent)
+        {
+            string pubYear = singleEvent.NewsDate.Value.Year.ToString(); //year in format like "2013"
+            //No year node, create one
+            var yearFolder = service.CreateContent(pubYear, singleEvent.NewsDate);
+            service.SaveAndPublish(yearFolder);
+        }
+
+        private static void SetTheNewsDate(Event singleEvent)
+        {
+            //default to today if no date is specified, or if date is invalid (date comes back as year 1, month 1, etc
+            if (!singleEvent.NewsDate.HasValue || singleEvent.NewsDate.Value.Year == 1)
+            {
+                singleEvent.NewsDate = DateTime.Now;
+            }
         }
     }
 }
